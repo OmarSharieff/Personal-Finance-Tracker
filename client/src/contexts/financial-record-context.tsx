@@ -2,7 +2,7 @@ import { useUser } from "@clerk/clerk-react";
 import { createContext, useContext, useEffect, useState } from "react";
 
 export interface FinancialRecord {
-  id?: string;
+  _id?: string;
   userId: string;
   date: Date;
   description: string;
@@ -14,6 +14,8 @@ export interface FinancialRecord {
 interface FinancialRecordsContextType {
   records: FinancialRecord[];
   addRecord: (record: FinancialRecord) => void;
+  updateRecord: (id: string, newRecord: FinancialRecord) => void;
+  deleteRecord: (id: string) => void;
 }
 
 export const FinancialRecordsContext = createContext<
@@ -26,29 +28,26 @@ export const FinancialRecordsProvider = ({
   children: React.ReactNode;
 }) => {
   const [records, setRecords] = useState<FinancialRecord[]>([]);
+  const { user } = useUser();
 
-  // Get the user from the context
-  const {user} = useUser();
-
-  // Fetch records from the server
-  const fetchRecords = async()=> {
+  const fetchRecords = async () => {
     if (!user) return;
-    const response = await fetch(`http://localhost:3001/financial-records/getAllByUserID/${user.id}`);
+    const response = await fetch(
+      `http://localhost:3001/financial-records/getAllByUserID/${user.id}`
+    );
 
     if (response.ok) {
       const records = await response.json();
-      console.log(records); // Log the records
+      console.log(records);
       setRecords(records);
     }
   };
-  // Calling fetchRecords function on rendering
-  useEffect(()=> {
+
+  useEffect(() => {
     fetchRecords();
   }, [user]);
 
   const addRecord = async (record: FinancialRecord) => {
-    console.log("Adding record:", record);  // Log the record data
-
     try {
       const response = await fetch("http://localhost:3001/financial-records", {
         method: "POST",
@@ -58,27 +57,68 @@ export const FinancialRecordsProvider = ({
         },
       });
 
-      if (!response.ok) {
-        const errorResponse = await response.json();
-        console.error("Failed to add a new record:", errorResponse);
-        return;
+      if (response.ok) {
+        const newRecord = await response.json();
+        setRecords((prev) => [...prev, newRecord]);
       }
+    } catch (err) {
+      console.error("Failed to add record:", err);
+    }
+  };
 
-      const newRecord = await response.json();
-      setRecords((prev) => [...prev, newRecord]);
-    } catch (error) {
-      console.error("Failed to add a new record:", error);
+  const updateRecord = async (id: string, newRecord: FinancialRecord) => {
+    try {
+      const response = await fetch(
+        `http://localhost:3001/financial-records/${id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(newRecord),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const updatedRecord = await response.json();
+        setRecords((prev) =>
+          prev.map((record) => (record._id === id ? updatedRecord : record))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to update record:", err);
+    }
+  };
+
+  const deleteRecord = async (id: string) => {
+    try {
+      const response = await fetch(
+        `http://localhost:3001/financial-records/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        const deletedRecord = await response.json();
+        setRecords((prev) =>
+          prev.filter((record) => record._id !== deletedRecord._id)
+        );
+      }
+    } catch (err) {
+      console.error("Failed to delete record:", err);
     }
   };
 
   return (
-    <FinancialRecordsContext.Provider value={{ records, addRecord }}>
+    <FinancialRecordsContext.Provider
+      value={{ records, addRecord, updateRecord, deleteRecord }}
+    >
       {children}
     </FinancialRecordsContext.Provider>
   );
 };
 
-// Creating a constant hook
 export const useFinancialRecords = () => {
   const context = useContext<FinancialRecordsContextType | undefined>(
     FinancialRecordsContext

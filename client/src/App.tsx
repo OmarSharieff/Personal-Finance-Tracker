@@ -1,7 +1,8 @@
 import './App.css'
-import { BrowserRouter as Router, Routes, Route} from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Link} from 'react-router-dom'
 import { Dashboard } from './pages/dashboard'
 import { Auth } from './pages/auth'
+import { SignedIn, UserButton } from '@clerk/clerk-react'
 
 
 function App() {
@@ -9,6 +10,12 @@ function App() {
   return (
     <Router>
       <div className='app-container'>
+        <div className='navbar'>
+          <Link to="/">Dashboard</Link>
+          <SignedIn>
+            <UserButton/>
+          </SignedIn>
+        </div>
         <Routes>
           <Route path="/" element={<Dashboard/>}/>
           <Route path="/auth" element={<Auth/>}/>
